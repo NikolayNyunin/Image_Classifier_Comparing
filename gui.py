@@ -1,3 +1,4 @@
+import sys
 from inspect import getmembers, isfunction
 
 import tkinter as tk
@@ -6,7 +7,7 @@ from tkinter.messagebox import showerror
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
 import models
-from train import train_and_evaluate
+from train import TrainAndEvaluateThread
 
 DATASETS = ('MNIST', 'Fashion-MNIST', 'CIFAR-10')
 
@@ -28,35 +29,64 @@ class App(tk.Tk):
         self.container.grid_rowconfigure(0, weight=1)
         self.container.grid_columnconfigure(0, weight=1)
 
+        self.training_output_frame = TrainingOutputFrame(self.container)
+        self.training_output_frame.grid(row=0, column=0, sticky='nsew')
+        sys.stdout = TextWidgetOutput(self.training_output_frame.output_text)
+
+        self.result_frame = None
+
         self.parameter_selection_frame = ParameterSelectionFrame(self.container, self)
         self.parameter_selection_frame.grid(row=0, column=0, sticky='nsew')
         self.geometry(self.parameter_selection_frame.geometry)
-
-        self.result_frame = None
 
     def show_parameter_selection_frame(self):
         self.parameter_selection_frame.tkraise()
         self.geometry(self.parameter_selection_frame.geometry)
 
-    def train_and_show_results(self, dataset_name: str, train_percentage: int, test_percentage: int,
-                               epoch_count: int, batch_size: int, model_tuples: list[tuple]):
+    def show_training_output_frame(self):
+        self.training_output_frame.clear()
+        self.training_output_frame.tkraise()
+        self.geometry(self.training_output_frame.geometry)
 
-        metrics, train_times, frame = train_and_evaluate(
-            dataset_name,
-            train_percentage,
-            test_percentage,
-            epoch_count,
-            batch_size,
-            model_tuples
-        )
+    def monitor_and_show_result(self, thread: TrainAndEvaluateThread, model_names):
+        if thread.is_alive():
+            self.after(100, lambda: self.monitor_and_show_result(thread, model_names))
+        else:
+            if self.result_frame:
+                self.result_frame.destroy()
+            self.result_frame = ResultFrame(self.container, self, model_names, thread.metrics,
+                                            thread.train_times, thread.figure)
+            self.result_frame.grid(row=0, column=0, sticky='nsew')
+            self.geometry(self.result_frame.geometry)
+
+    def train(self, dataset_name: str, train_percentage: int, test_percentage: int,
+              epoch_count: int, batch_size: int, model_tuples: list[tuple]):
+
+        self.show_training_output_frame()
+
+        train_thread = TrainAndEvaluateThread(dataset_name, train_percentage, test_percentage,
+                                              epoch_count, batch_size, model_tuples)
+        train_thread.start()
 
         model_names = [name for name, _ in model_tuples]
 
-        if self.result_frame:
-            self.result_frame.destroy()
-        self.result_frame = ResultFrame(self.container, self, model_names, metrics, train_times, frame)
-        self.result_frame.grid(row=0, column=0, sticky='nsew')
-        self.geometry(self.result_frame.geometry)
+        self.monitor_and_show_result(train_thread, model_names)
+
+
+class TextWidgetOutput:
+    """Класс, реализующий запись консольного вывода в текстовый виджет."""
+
+    def __init__(self, text_widget: tk.Text):
+        self.text_widget = text_widget
+
+    def write(self, string):
+        self.text_widget.configure(state='normal')
+        self.text_widget.insert('end', string)
+        self.text_widget.configure(state='disabled')
+        self.text_widget.yview(tk.END)
+
+    def flush(self):
+        pass
 
 
 class ParameterSelectionFrame(ttk.Frame):
@@ -186,7 +216,7 @@ class ParameterSelectionFrame(ttk.Frame):
             showerror(title='Ошибка', message='Ошибка в вводе batch size')
             return
 
-        self.controller.train_and_show_results(
+        self.controller.train(
             self.selected_dataset.get(),
             self.train_percentage.get(),
             self.test_percentage.get(),
@@ -197,7 +227,25 @@ class ParameterSelectionFrame(ttk.Frame):
 
 
 class TrainingOutputFrame(ttk.Frame):
-    pass
+    """Класс, описывающий виджет вывода процесса обучения моделей."""
+
+    geometry = '1280x720'
+
+    def __init__(self, master):
+        super().__init__(master)
+
+        padding = {'padx': 5, 'pady': 5}
+
+        self.output_label = ttk.Label(self, text='Идёт обучение...', font='Calibri 18')
+        self.output_label.pack(expand=True, **padding)
+
+        self.output_text = tk.Text(self, state='disabled', width=120, height=25, wrap='none', font='Consolas 14')
+        self.output_text.pack(expand=True, **padding)
+
+    def clear(self):
+        self.output_text.configure(state='normal')
+        self.output_text.delete(1.0, tk.END)
+        self.output_text.configure(state='disabled')
 
 
 class ResultFrame(ttk.Frame):
