@@ -1,7 +1,11 @@
+from inspect import getmembers, isfunction
+
 import tkinter as tk
 from tkinter import ttk
 from tkinter.messagebox import showerror
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
+import models
 from train import train_and_evaluate
 
 DATASETS = ('MNIST', 'Fashion-MNIST', 'CIFAR-10')
@@ -14,18 +18,58 @@ class App(tk.Tk):
         super().__init__()
 
         self.title('Сравнение классификаторов изображений')
-        self.geometry('480x360')
         self.resizable(False, False)
+
+        # получение информации о моделях, описанных в файле `models.py`
+        self.model_tuples = getmembers(models, isfunction)
+
+        self.container = ttk.Frame(self)
+        self.container.pack(fill='both', expand=True)
+        self.container.grid_rowconfigure(0, weight=1)
+        self.container.grid_columnconfigure(0, weight=1)
+
+        self.parameter_selection_frame = ParameterSelectionFrame(self.container, self)
+        self.parameter_selection_frame.grid(row=0, column=0, sticky='nsew')
+        self.geometry(self.parameter_selection_frame.geometry)
+
+        self.result_frame = None
+
+    def show_parameter_selection_frame(self):
+        self.parameter_selection_frame.tkraise()
+        self.geometry(self.parameter_selection_frame.geometry)
+
+    def train_and_show_results(self, dataset_name: str, train_percentage: int, test_percentage: int,
+                               epoch_count: int, batch_size: int, model_tuples: list[tuple]):
+
+        metrics, train_times, frame = train_and_evaluate(
+            dataset_name,
+            train_percentage,
+            test_percentage,
+            epoch_count,
+            batch_size,
+            model_tuples
+        )
+
+        model_names = [name for name, _ in model_tuples]
+
+        if self.result_frame:
+            self.result_frame.destroy()
+        self.result_frame = ResultFrame(self.container, self, model_names, metrics, train_times, frame)
+        self.result_frame.grid(row=0, column=0, sticky='nsew')
+        self.geometry(self.result_frame.geometry)
 
 
 class ParameterSelectionFrame(ttk.Frame):
     """Класс, описывающий виджет выбора параметров для тестирования моделей."""
 
-    def __init__(self, master, model_tuples):
+    geometry = '480x360'
+
+    def __init__(self, master, controller: App):
         super().__init__(master)
 
-        self.model_tuples = model_tuples
-        model_names = [name for name, _ in model_tuples]
+        self.controller = controller
+
+        model_names = [name for name, _ in self.controller.model_tuples]
 
         padding = {'padx': 5, 'pady': 5}
 
@@ -107,8 +151,6 @@ class ParameterSelectionFrame(ttk.Frame):
         self.begin_button = ttk.Button(self, text='Начать тестирование', padding=7, command=self.start_training)
         self.begin_button.pack(**padding)
 
-        self.pack(padx=10, pady=10)
-
     def update_slider_labels(self, event=None):
         """Обновление значений ярлыков с процентами."""
 
@@ -123,7 +165,8 @@ class ParameterSelectionFrame(ttk.Frame):
         if True not in selected_models:
             showerror(title='Ошибка', message='Не выбрано ни одной модели')
             return
-        model_tuples = [self.model_tuples[i] for i in range(len(self.model_tuples)) if selected_models[i]]
+        model_tuples = [self.controller.model_tuples[i]
+                        for i in range(len(self.controller.model_tuples)) if selected_models[i]]
 
         # получение числа эпох обучения
         try:
@@ -143,8 +186,14 @@ class ParameterSelectionFrame(ttk.Frame):
             showerror(title='Ошибка', message='Ошибка в вводе batch size')
             return
 
-        train_and_evaluate(self.selected_dataset.get(), self.train_percentage.get(), self.test_percentage.get(),
-                           epoch_count, batch_size, model_tuples)
+        self.controller.train_and_show_results(
+            self.selected_dataset.get(),
+            self.train_percentage.get(),
+            self.test_percentage.get(),
+            epoch_count,
+            batch_size,
+            model_tuples
+        )
 
 
 class TrainingOutputFrame(ttk.Frame):
@@ -152,4 +201,48 @@ class TrainingOutputFrame(ttk.Frame):
 
 
 class ResultFrame(ttk.Frame):
-    pass
+    """Класс, описывающий виджет для отображения результатов тестирования моделей."""
+
+    geometry = '1280x900'
+
+    def __init__(self, master, controller: App, model_names, metrics, train_times, figure):
+        super().__init__(master)
+
+        padding = {'padx': 20, 'pady': 5}
+
+        self.table_frame = ttk.Frame(self)
+
+        self.model_name_label = ttk.Label(self.table_frame, text='Название модели', font='Calibri 14')
+        self.model_name_label.grid(row=0, column=0, **padding)
+
+        self.accuracy_label = ttk.Label(self.table_frame, text='Итоговая точность', font='Calibri 14')
+        self.accuracy_label.grid(row=0, column=1, **padding)
+
+        self.loss_label = ttk.Label(self.table_frame, text='Итоговое значение функции потерь', font='Calibri 14')
+        self.loss_label.grid(row=0, column=2, **padding)
+
+        self.train_time_label = ttk.Label(self.table_frame, text='Время обучения (секунд)', font='Calibri 14')
+        self.train_time_label.grid(row=0, column=3, **padding)
+
+        for i in range(len(model_names)):
+            model_name_label = ttk.Label(self.table_frame, text=model_names[i], font='Consolas 14')
+            model_name_label.grid(row=i + 1, column=0, **padding)
+
+            accuracy_label = ttk.Label(self.table_frame, text=round(metrics[i][1], 3), font='Consolas 14')
+            accuracy_label.grid(row=i + 1, column=1, **padding)
+
+            loss_label = ttk.Label(self.table_frame, text=round(metrics[i][0], 3), font='Consolas 14')
+            loss_label.grid(row=i + 1, column=2, **padding)
+
+            train_time_label = ttk.Label(self.table_frame, text=round(train_times[i], 3), font='Consolas 14')
+            train_time_label.grid(row=i + 1, column=3, **padding)
+
+        self.table_frame.pack(expand=True, **padding)
+
+        self.figure_canvas = FigureCanvasTkAgg(figure, self)
+        NavigationToolbar2Tk(self.figure_canvas, self)
+        self.figure_canvas.get_tk_widget().pack(expand=True, **padding)
+
+        self.return_button = ttk.Button(self, text='Заново', padding=10,
+                                        command=controller.show_parameter_selection_frame)
+        self.return_button.pack(expand=True, **padding)
