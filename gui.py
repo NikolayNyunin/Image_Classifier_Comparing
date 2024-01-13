@@ -9,7 +9,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 import models
 from train import TrainAndEvaluateThread
 
-DATASETS = ('MNIST', 'Fashion-MNIST', 'CIFAR-10')
+DATASETS = ('MNIST', 'Fashion-MNIST')
 
 
 class App(tk.Tk):
