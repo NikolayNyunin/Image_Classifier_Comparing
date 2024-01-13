@@ -31,7 +31,7 @@ class TrainAndEvaluateThread(Thread):
             = load_data(self.dataset_name, self.train_percentage, self.test_percentage)
 
         # создание графика
-        self.figure, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+        self.figure, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
         self.metrics, self.train_times = [], []
         for model_name, model_function in self.model_tuples:

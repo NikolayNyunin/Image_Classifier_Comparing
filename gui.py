@@ -39,6 +39,8 @@ class App(tk.Tk):
         self.parameter_selection_frame.grid(row=0, column=0, sticky='nsew')
         self.geometry(self.parameter_selection_frame.geometry)
 
+        self.configure_style()
+
     def show_parameter_selection_frame(self):
         self.parameter_selection_frame.tkraise()
         self.geometry(self.parameter_selection_frame.geometry)
@@ -72,6 +74,15 @@ class App(tk.Tk):
 
         self.monitor_and_show_result(train_thread, model_names)
 
+    def configure_style(self):
+        style = ttk.Style(self)
+        font = 'Calibri 14'
+        style.configure('TLabelframe.Label', font=font)
+        style.configure('TCheckbutton', font=font)
+        style.configure('TRadiobutton', font=font)
+        style.configure('TLabel', font=font)
+        style.configure('TButton', font=font)
+
 
 class TextWidgetOutput:
     """Класс, реализующий запись консольного вывода в текстовый виджет."""
@@ -92,7 +103,7 @@ class TextWidgetOutput:
 class ParameterSelectionFrame(ttk.Frame):
     """Класс, описывающий виджет выбора параметров для тестирования моделей."""
 
-    geometry = '480x360'
+    geometry = '740x520'
 
     def __init__(self, master, controller: App):
         super().__init__(master)
@@ -101,7 +112,7 @@ class ParameterSelectionFrame(ttk.Frame):
 
         model_names = [name for name, _ in self.controller.model_tuples]
 
-        padding = {'padx': 5, 'pady': 5}
+        padding = {'padx': 10, 'pady': 10}
 
         self.model_label_frame = ttk.LabelFrame(self, text='Модели для тестирования:')
 
@@ -139,7 +150,7 @@ class ParameterSelectionFrame(ttk.Frame):
 
         self.train_percentage = tk.IntVar(value=100)
         self.train_slider = ttk.Scale(self.slider_frame, from_=1, to=100, variable=self.train_percentage,
-                                      command=self.update_slider_labels)
+                                      length=200, command=self.update_slider_labels)
         self.train_slider.grid(row=0, column=1, **padding)
 
         self.train_percentage_label = ttk.Label(self.slider_frame)
@@ -150,7 +161,7 @@ class ParameterSelectionFrame(ttk.Frame):
 
         self.test_percentage = tk.IntVar(value=100)
         self.test_slider = ttk.Scale(self.slider_frame, from_=1, to=100, variable=self.test_percentage,
-                                     command=self.update_slider_labels)
+                                     length=200, command=self.update_slider_labels)
         self.test_slider.grid(row=1, column=1, **padding)
 
         self.test_percentage_label = ttk.Label(self.slider_frame)
@@ -166,14 +177,16 @@ class ParameterSelectionFrame(ttk.Frame):
         self.epoch_count_label.grid(row=0, column=0, **padding)
 
         self.epoch_count = tk.IntVar(value=10)
-        self.epoch_count_input = ttk.Entry(self.num_input_frame, textvariable=self.epoch_count)
+        self.epoch_count_input = ttk.Entry(self.num_input_frame, textvariable=self.epoch_count,
+                                           justify='center', font='Calibri 14', width=10)
         self.epoch_count_input.grid(row=0, column=1, **padding)
 
         self.batch_size_label = ttk.Label(self.num_input_frame, text='Batch size:')
         self.batch_size_label.grid(row=1, column=0, **padding)
 
         self.batch_size = tk.IntVar(value=4)
-        self.batch_size_input = ttk.Entry(self.num_input_frame, textvariable=self.batch_size)
+        self.batch_size_input = ttk.Entry(self.num_input_frame, textvariable=self.batch_size,
+                                          justify='center', font='Calibri 14', width=10)
         self.batch_size_input.grid(row=1, column=1, **padding)
 
         self.num_input_frame.pack(**padding)
@@ -229,7 +242,7 @@ class ParameterSelectionFrame(ttk.Frame):
 class TrainingOutputFrame(ttk.Frame):
     """Класс, описывающий виджет вывода процесса обучения моделей."""
 
-    geometry = '1280x720'
+    geometry = '1280x780'
 
     def __init__(self, master):
         super().__init__(master)
@@ -251,7 +264,7 @@ class TrainingOutputFrame(ttk.Frame):
 class ResultFrame(ttk.Frame):
     """Класс, описывающий виджет для отображения результатов тестирования моделей."""
 
-    geometry = '1280x900'
+    geometry = '1280x780'
 
     def __init__(self, master, controller: App, model_names, metrics, train_times, figure):
         super().__init__(master)
@@ -260,16 +273,16 @@ class ResultFrame(ttk.Frame):
 
         self.table_frame = ttk.Frame(self)
 
-        self.model_name_label = ttk.Label(self.table_frame, text='Название модели', font='Calibri 14')
+        self.model_name_label = ttk.Label(self.table_frame, text='Название модели')
         self.model_name_label.grid(row=0, column=0, **padding)
 
-        self.accuracy_label = ttk.Label(self.table_frame, text='Итоговая точность', font='Calibri 14')
+        self.accuracy_label = ttk.Label(self.table_frame, text='Итоговая точность')
         self.accuracy_label.grid(row=0, column=1, **padding)
 
-        self.loss_label = ttk.Label(self.table_frame, text='Итоговое значение функции потерь', font='Calibri 14')
+        self.loss_label = ttk.Label(self.table_frame, text='Итоговое значение функции потерь')
         self.loss_label.grid(row=0, column=2, **padding)
 
-        self.train_time_label = ttk.Label(self.table_frame, text='Время обучения (секунд)', font='Calibri 14')
+        self.train_time_label = ttk.Label(self.table_frame, text='Время обучения (секунд)')
         self.train_time_label.grid(row=0, column=3, **padding)
 
         for i in range(len(model_names)):
