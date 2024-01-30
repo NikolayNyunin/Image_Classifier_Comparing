@@ -45,7 +45,7 @@ def c_advanced_cnn() -> keras.Sequential:
     model.compile(
         optimizer='adam',
         loss='sparse_categorical_crossentropy',
-        metrics=['accuracy'],
+        metrics=['accuracy']
     )
 
     return model
